@@ -1,0 +1,22 @@
+<html lang="en">
+
+{% load static %}
+{% include 'main/templates/header.html' %}
+
+
+<body>
+    {% csrf_token %}
+    {% with home=False %}
+    {% include 'main/templates/comments.html' %}
+    {% endwith %}
+    <div class="btn-bottom">
+        <form id="main-form">
+            <button class="btn btn-primary" type="submit">Load more comments</button>
+        </form>
+    </div>
+
+    <script src="{% static 'assets/js/all-comments.js' %}"></script>
+</body>
+
+
+</html>

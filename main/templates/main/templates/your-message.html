@@ -1,0 +1,14 @@
+{% load static %}
+
+<div class="chat-message-right pb-4">
+    <div>
+        <img src="{% static user_info.profile_photo %}" class="rounded-circle mr-1" alt="user.username"
+            width="40" height="40">
+
+    </div>
+    <div class="flex-shrink-1 bg-light rounded py-2 px-3 mr-3">
+        <div class="font-weight-bold mb-1">You</div>
+        {{text}}
+        <div class="text-muted small text-nowrap mt-2">{{date}}</div>
+    </div>
+</div>

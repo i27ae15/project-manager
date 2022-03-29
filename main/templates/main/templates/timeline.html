@@ -1,0 +1,36 @@
+<div class="col-lg-4 col-md-6">
+    <div class="card h-100">
+      <div class="card-header pb-0">
+        <h6>Timeline</h6>
+        {% if view_all is not None %}
+        <a class="btn btn-primary" style="padding: 7px;" href="{% url 'view_all_timeline' %}">View
+            all</a>
+        {% endif %}
+        </div>
+
+
+      <div class="card-body p-3">
+        <div class="timeline timeline-one-side">
+          {% for activity in timeline %}
+          <div class="timeline-block mb-3">
+            <span class="timeline-step">
+              <i class="ni ni-bell-55 text-success text-gradient"></i>
+            </span>
+            <div class="timeline-content">
+              <h6 class="text-dark text-sm font-weight-bold mb-0">{{activity.activity}}</h6>
+              <p class="text-secondary font-weight-bold text-xs mt-1 mb-0">{{activity.date}}</p>
+            </div>
+          </div>
+          {% endfor %}
+
+        </div>
+      </div>
+      {% if form is not None %}
+      <form action="" class="timeline-form" id="timeline-form">
+        {% csrf_token %}
+        {{new_milestone_form}}
+        <button class="btn btn-primary">Submit</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
