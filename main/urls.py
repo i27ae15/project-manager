@@ -15,6 +15,7 @@ urlpatterns = [
     # POST managers
     path('comments-manager/<str:home>', views.new_comments_manager, name='new_comments_manager'),
     path('new-task-manager/', views.new_task_manager, name='new_task_manager'),
+    path('complete-task/', views.set_task_as_completed, name='set_task_as_completed'),
 
     # APIs
     path('comments_api/', views.comments_api, name='comments_api'),

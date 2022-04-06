@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'main.apps.MainConfig',
     'register.apps.RegisterConfig',
-    'django_jinja',
     'crispy_forms',
 ]
 
@@ -57,13 +56,6 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'project_manager.urls'
 
 TEMPLATES = [
-    {
-        "BACKEND": "django_jinja.backend.Jinja2",
-        "APP_DIRS": True,
-        "OPTIONS": {
-           "match_extension": ".jinja",
-        }
-    },
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [],

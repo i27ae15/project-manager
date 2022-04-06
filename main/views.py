@@ -1,21 +1,25 @@
-# django stuff
+# python
+import uuid
+from datetime import datetime
+
+# django 
 from django.http import HttpResponse
 from django.http.response import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
-# mongo stuff
+
+# mongo 
 import pymongo
 import certifi
 from bson.objectid import ObjectId
-ca = certifi.where()
 
 # forms
 from .forms import Comment, AnswerComment, NewActivity, PersonalDetails
 
 # other imports
-from datetime import datetime
 NOW = datetime.now()
+ca = certifi.where()
 
 # connecting to the data base ---------------------------------------------------
 client = pymongo.MongoClient("mongodb+srv://userTestOne:aM2ex0Wde9Hy7C7v@cluster0.m226z.mongodb.net/sample_restaurants?retryWrites=true&w=majority", tlsCAFile=ca)
@@ -99,7 +103,7 @@ def get_recent_chats(user_id, get_current_chat=False):
 
     for chat in user_info['chats']:
         new_chat_info = {}
-        user =  USER_COLLECTION.find_one({'id':chat['user_id']})
+        user = USER_COLLECTION.find_one({'id':chat['user_id']})
         new_chat_info['username'] = user['username']
         new_chat_info['profile_photo'] = USER_INFO_COLLECTION.find_one({'user_id':chat['user_id']})['profile_photo']
 
@@ -122,7 +126,7 @@ def create_user_info(user_id):
             'user_id':user_id,
             'profile_photo': '',
             'role': '',
-            'working_on': '',
+            'current_task': '',
             'city': '',
             'country': '',
             'phone': '',
@@ -131,6 +135,7 @@ def create_user_info(user_id):
             'chats': [],
             'comments': [],
             'notifications': [], 
+            'user_level': 0,  
         }
 
         USER_INFO_COLLECTION.insert_one(new_info)
@@ -199,6 +204,8 @@ def view_all_timeline(request):
 @login_required(login_url='login')
 def profile(request, username):
 
+    current_logged_user = USER_INFO_COLLECTION.find_one({'user_id': request.user.id})
+
     if username == 'my_profile' or username == request.user.username:
 
         other_info = USER_INFO_COLLECTION.find_one({'user_id':request.user.id})
@@ -213,15 +220,24 @@ def profile(request, username):
         
         user_info['chats'] = chats
 
+        own_profile = True
+
     else:
 
         user = USER_COLLECTION.find_one({'username':username})
         other_info = USER_INFO_COLLECTION.find_one({'user_id':user['id']})
         user_info = {'main':user, 'user_info':other_info}
+        own_profile = False
+
+    user_info['current_task'] = TASKS_COLLECTION.find_one({'user_id': request.user.id})
+
+    if user_info['current_task'] is not None:
+        user_info['current_task_id'] = user_info['current_task']['_id']
+    else:
+        user_info['current_task'] = False
 
 
-
-    return render(request, 'main/main_pages/profile.html', {'user_info':user_info})
+    return render(request, 'main/main_pages/profile.html', {'user_info':user_info, 'own_profile':own_profile, 'current_logged_user': current_logged_user})
 
 
 @login_required(login_url='login')
@@ -313,7 +329,7 @@ def comments_api(request):
 
 
 def timeline_api(request):
-    if request.is_ajax() and request.method == 'POST':
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.method == 'POST':
         new_activity_in_timeline = {
             'activity': request.POST.get('activity'),
             'date': NOW.now()
@@ -327,7 +343,7 @@ def timeline_api(request):
 
 def send_message_api(request):
 
-    if request.is_ajax() and request.method == 'POST':
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.method == 'POST':
         new_message = {
             'chat_id': request.POST.get('chat_id'),
             'sent_by': int(request.POST.get('user_id')),
@@ -390,12 +406,13 @@ def new_comments_manager(request, home='True'):
 
 
 def new_task_manager(request):
-    if request.is_ajax() and request.method == 'POST':
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.method == 'POST':
         new_task = {
             'task': request.POST.get('task'),
             'details': request.POST.get('details'),
             'user_id': int(request.POST.get('user_id')),
-            'date': NOW.now()
+            'date': NOW.now(),
+            'deadline': request.POST.get('deadline'),
         }
 
         TASKS_COLLECTION.insert_one(new_task)
@@ -406,6 +423,56 @@ def new_task_manager(request):
 
         return JsonResponse({'status': 200})
 
-    return HttpResponse('FORBBIDEN')
+    return HttpResponse('FORBIDDEN')
     
 
+def set_task_as_completed(request):
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.method == 'POST':
+        
+        current_task = TASKS_COLLECTION.find_one_and_update(
+            {
+            '_id': ObjectId(request.POST.get('task_id'))},
+            {
+            '$set': {'waiting_for_aproval': True}}
+            )
+
+        
+        # send a notification for the person(s) in charge for revision of the task completed
+        users = USER_INFO_COLLECTION.find({'current_project': current_task['project'] ,  'user_level': {'$gt': 0}})
+        
+
+        for user in users:
+            print('-----------')
+            print(user['user_id'])
+            print('-----------')
+            create_notification(
+                user_id=ObjectId(user['_id']),
+                notification_type='Task revision',
+                message=f'New task for revison from {request.POST.get("username")}'
+            )
+        
+
+        return JsonResponse({'status': 200})
+
+    else:
+        return HttpResponse('FORBIDDEN')
+
+
+def create_notification(user_id:ObjectId, notification_type:str, message:str):
+    """
+    
+    Create a notification and add it to the list/array of the user notifications
+
+    Args:
+        user_id (ObjectId): id of the user where the notification is added
+        notification_type (str): the type of notification (message, task revision, other)
+        message (str): a brief about the notification
+    """
+
+    new_notification = {
+        'type': notification_type,
+        'message': message,
+        'id': str(uuid.uuid4())
+        }
+
+    USER_INFO_COLLECTION.find_one_and_update({'_id': user_id}, {'$push': {'notifications':new_notification}})

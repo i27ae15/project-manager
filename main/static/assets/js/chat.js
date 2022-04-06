@@ -16,6 +16,14 @@ $('#send-message-form').submit(function (e) {
         'csrfmiddlewaretoken': document.getElementsByName('csrfmiddlewaretoken')[0].value,
     }
 
+    let regExp = /[a-zA-Z]/g;
+    let specialChars = /[`!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~]/;
+
+
+    if (!regExp.test(jsonData.text) && !specialChars.test(jsonData.text)){
+        return 
+    } 
+
     $.ajax({
         type: 'POST',
         url: '/send_message_api/',
