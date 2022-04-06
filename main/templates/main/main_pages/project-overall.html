@@ -17,10 +17,10 @@
                     <table class="table align-items-center mb-0">
                         <thead>
                             <tr>
-                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Author
+                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Name
                                 </th>
                                 <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">
-                                    Function</th>
+                                    Role</th>
                                 <th
                                     class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
                                     Status</th>
@@ -63,6 +63,71 @@
                                     <a href="{% url 'user_details' username=user.main_info.username %}" class="text-secondary font-weight-bold text-xs"
                                         data-toggle="tooltip" data-original-title="Edit user">
                                         View more
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header pb-0">
+                <h6>Task for approval</h6>
+            </div>
+            <div class="card-body px-0 pt-0 pb-2">
+                <div class="table-responsive p-0">
+                    <table class="table align-items-center mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Developer
+                                </th>
+                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">
+                                    Role</th>
+                                <th
+                                    class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
+                                    Task</th>
+                                <th
+                                    class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
+                                    Submited</th>
+                                <th class="text-secondary opacity-7"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex px-2 py-1">
+                                        <div>
+                                            <img src="{% static task.user.profile_photo %}" class="avatar avatar-sm me-3"
+                                                alt="user1">
+                                        </div>
+                                        <div class="d-flex flex-column justify-content-center">
+                                            <h6 class="mb-0 text-sm">{{task.user.first_name}} {{task.user.second_name}}</h6>
+                                            <p class="text-xs text-secondary mb-0">{{task.user.email}}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <p class="text-xs font-weight-bold mb-0">{{task.user.role}}</p>
+                                    <!-- <p class="text-xs text-secondary mb-0">Organization</p> -->
+                                </td>
+                                <td class="align-middle text-center text-sm">
+                                    <p class="text-xs font-weight-bold mb-0">{{task.task.task}}</p>
+                                </td>
+                                <td class="align-middle text-center">
+                                    <p class="text-xs font-weight-bold mb-0">{{task.task.submited}}</p>
+                                </td>
+                                <td class="align-middle"> <!-- Add here a parameter for the task section -->
+                                    <a href="" class="text-secondary font-weight-bold text-xs"
+                                        data-toggle="tooltip" data-original-title="Edit user">
+                                        View task
                                     </a>
                                 </td>
                             </tr>

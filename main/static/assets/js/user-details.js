@@ -84,3 +84,4 @@ function addNewTask(data){
 </div>
 `);
 }
+

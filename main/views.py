@@ -44,7 +44,7 @@ TASKS_COLLECTION = db_name['tasks']
 
 # other functions ---------------------------------------------------------------------------------
 
-def is_boolean(value):
+def set_boolean(value):
 
     if str(value).lower() in ['true', '1']:
         return True
@@ -119,11 +119,14 @@ def get_recent_chats(user_id, get_current_chat=False):
 
     return info
 
-
-def create_user_info(user_id):
-    if USER_INFO_COLLECTION.find_one({'user_id':user_id}) is None:
+def create_user_info(user):
+    if USER_INFO_COLLECTION.find_one({'user_id':user.id}) is None:
         new_info = {
-            'user_id':user_id,
+            'user_id':user.id,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'username': user.username,
+            'email': user.email,
             'profile_photo': '',
             'role': '',
             'current_task': '',
@@ -160,7 +163,7 @@ def get_users_in_project():
 
 @login_required(login_url='login')
 def home(request):
-    create_user_info(request.user.id)
+    create_user_info(request.user)
     # we are going to get the five recent comments
 
     comments = get_recent_comments()
@@ -231,11 +234,8 @@ def profile(request, username):
 
     user_info['current_task'] = TASKS_COLLECTION.find_one({'user_id': request.user.id})
 
-    if user_info['current_task'] is not None:
-        user_info['current_task_id'] = user_info['current_task']['_id']
-    else:
+    if user_info['current_task'] is None:
         user_info['current_task'] = False
-
 
     return render(request, 'main/main_pages/profile.html', {'user_info':user_info, 'own_profile':own_profile, 'current_logged_user': current_logged_user})
 
@@ -302,7 +302,18 @@ def chat(request, username=False):
 @login_required(login_url='login')
 def project_overall(request):
     users = get_users_in_project()
-    return render(request, 'main/main_pages/project-overall.html', {'users':users})
+
+    # get the task that are waiting for aproval
+
+    tasks_waiting_for_aproval = TASKS_COLLECTION.find({'waiting_for_aproval': True})
+    tasks:list = []
+
+    for task in tasks_waiting_for_aproval:
+        user = USER_INFO_COLLECTION.find_one({'user_id': task['user_id']})
+        
+        tasks.append({'task':task, 'user':user})
+
+    return render(request, 'main/main_pages/project-overall.html', {'users':users, 'tasks':tasks})
 
 
 @login_required(login_url='login')
@@ -312,9 +323,15 @@ def user_details(request, username):
     other_info = USER_INFO_COLLECTION.find_one({'user_id':user['id']})
     user_info = {'main_info':user, 'other_info':other_info}
 
+    if request.user.username == username:
+        own_profile = True
+    else:
+        own_profile = False
+
     tasks = TASKS_COLLECTION.find({'user_id':user['id']}).sort('date', -1).limit(10)
-    
-    return render(request, 'main/main_pages/user-details.html', {'user_info':user_info, 'tasks':tasks})
+    current_user = USER_INFO_COLLECTION.find_one({'user_id':request.user.id})
+
+    return render(request, 'main/main_pages/user-details.html', {'user_info':user_info, 'tasks':tasks, 'own_profile':own_profile, 'current_user':current_user})
 
 # ------------------------------------------------------------------
 # APIs
@@ -399,7 +416,7 @@ def new_comments_manager(request, home='True'):
             new_values = { '$push': {'answers':new_answer}}
             COMMENTS_COLLECTION.update_one(query, new_values)
 
-    if is_boolean(home):
+    if set_boolean(home):
         return redirect('home')
     else:
         return redirect('view_all_comments')
@@ -408,11 +425,17 @@ def new_comments_manager(request, home='True'):
 def new_task_manager(request):
     if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.method == 'POST':
         new_task = {
+            'id': (uuid.uuid4()),
             'task': request.POST.get('task'),
             'details': request.POST.get('details'),
             'user_id': int(request.POST.get('user_id')),
             'date': NOW.now(),
             'deadline': request.POST.get('deadline'),
+            'completed': False,
+            'waiting_for_aproval': False,
+            # HERE MUST BE CHANGE TO BE DYNAMIC
+            'project': 'Project manager',
+            'submited': NOW.now(),
         }
 
         TASKS_COLLECTION.insert_one(new_task)
@@ -428,23 +451,45 @@ def new_task_manager(request):
 
 def set_task_as_completed(request):
     if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.method == 'POST':
+
+        if request.POST.get('aprove') != 'None':
+
+            aprove = set_boolean(request.POST.get('aprove'))
+
+            current_task = TASKS_COLLECTION.find_one_and_update(
+                {
+                'id': (request.POST.get('task_id'))},
+                {
+                '$set': {'waiting_for_aproval': False, 'completed': aprove}}
+                )
+            
+            user = USER_INFO_COLLECTION.find_one_and_update({'username': request.POST.get('username')}, 
+            {'$set': {'working_on':''}})
+            
+            if aprove:
+                msg = f'Your task "{current_task["task"]}" was aproved'
+            else:
+                msg = f'Your task "{current_task["task"]}" was not aproved'
+
+
+            create_notification(user['_id'], 'Task revison', msg)
+            return JsonResponse({'status': 200})
+
+            
         
         current_task = TASKS_COLLECTION.find_one_and_update(
             {
-            '_id': ObjectId(request.POST.get('task_id'))},
+            'id': (request.POST.get('task_id'))},
             {
             '$set': {'waiting_for_aproval': True}}
             )
 
         
         # send a notification for the person(s) in charge for revision of the task completed
-        users = USER_INFO_COLLECTION.find({'current_project': current_task['project'] ,  'user_level': {'$gt': 0}})
+        users = USER_INFO_COLLECTION.find({'current_project': current_task['project'] , 'user_level': {'$gt': 0}})
         
 
         for user in users:
-            print('-----------')
-            print(user['user_id'])
-            print('-----------')
             create_notification(
                 user_id=ObjectId(user['_id']),
                 notification_type='Task revision',
