@@ -86,16 +86,16 @@ WSGI_APPLICATION = 'project_manager.wsgi.application'
 
 import certifi
 ca = certifi.where()
-
 #In the settings.py
 DATABASES = {
         'default': {
             'ENGINE': 'djongo',
             'NAME': 'ProjectManager',
-            'ENFORCE_SCHEMA': False,
-            'CLIENT': {
-                'host': f"mongodb+srv://userTestOne:aM2ex0Wde9Hy7C7v@cluster0.m226z.mongodb.net/ProjectManager?retryWrites=true&w=majority&tlsCAFile={ca}"
-            }  
+            # 'ENFORCE_SCHEMA': False,
+            # 'CLIENT': {
+            #     'host': f"mongodb+srv://userTestOne:aM2ex0Wde9Hy7C7v@cluster0.m226z.mongodb.net/ProjectManager?retryWrites=true&w=majority&tlsCAFile={ca}"
+            # }  
+            
         }
 }
 

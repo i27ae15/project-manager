@@ -4,7 +4,7 @@
     <div class="card-header pb-0">
       <h6>Timeline</h6>
       {% if view_all is not None %}
-      <a class="btn btn-primary" style="padding: 7px;" href="{% url 'view_all_timeline' %}">View
+      <a class="btn btn-primary" style="padding: 7px;" href="{% url 'view_all_timeline' project_id='test' %}">View
         all</a>
       {% endif %}
     </div>

@@ -22,20 +22,42 @@ NOW = datetime.now()
 ca = certifi.where()
 
 # connecting to the data base ---------------------------------------------------
-client = pymongo.MongoClient("mongodb+srv://userTestOne:aM2ex0Wde9Hy7C7v@cluster0.m226z.mongodb.net/sample_restaurants?retryWrites=true&w=majority", tlsCAFile=ca)
+ONLINE_CLIENT = pymongo.MongoClient("mongodb+srv://userTestOne:aM2ex0Wde9Hy7C7v@cluster0.m226z.mongodb.net/sample_restaurants?retryWrites=true&w=majority", tlsCAFile=ca)
+
+LOCAL_CLIENT = pymongo.MongoClient()
+
 # First define the database name
-db_name = client['ProjectManager']
+
+db_name = LOCAL_CLIENT['ProjectManager']
 
 # Now get/create collection name (remember that you will see the database in your mongodb cluster only after you create a collection
 # ------------------------------------------------------------------------------
 
+# Constants
+
+MANAGER_LEVEL = 1
+
+# independents collections
+PROJECTS_COLLECTION = db_name['projects']
 USER_COLLECTION = db_name['auth_user']
 USER_INFO_COLLECTION = db_name['user_info']
-COMMENTS_COLLECTION = db_name['comments']
-TIMELINE_COLLECTION = db_name['timeline']
-CHATS_COLLECTION = db_name['chats']
-MESSAGES_COLLECTION = db_name['messages']
-TASKS_COLLECTION = db_name['tasks']
+
+project_objectives_collection = 'project_objectives'
+project_tasks_collection = 'project_tasks'
+comments_collection = 'comments'
+timeline_collection = 'timeline'
+chats_collection = 'chats'
+messages_collection = 'messages'
+user_tasks_collection = 'user_tasks'
+
+PROJECT_OBJECTIVES_COLLECTION = db_name[project_objectives_collection]
+PROJECT_TASKS_COLLECTION = db_name[project_tasks_collection]
+COMMENTS_COLLECTION = db_name[comments_collection]
+TIMELINE_COLLECTION = db_name[timeline_collection]
+CHATS_COLLECTION = db_name[chats_collection]
+MESSAGES_COLLECTION = db_name[chats_collection]
+TASKS_COLLECTION = db_name[user_tasks_collection]
+
 
 # TO DO -------------------------------------------------------------------------------------------
 # to be able to post answer to comments
@@ -119,6 +141,7 @@ def get_recent_chats(user_id, get_current_chat=False):
 
     return info
 
+
 def create_user_info(user):
     if USER_INFO_COLLECTION.find_one({'user_id':user.id}) is None:
         new_info = {
@@ -144,7 +167,7 @@ def create_user_info(user):
         USER_INFO_COLLECTION.insert_one(new_info)
 
 
-def get_users_in_project():
+def get_users_in_project(project_id:str=''):
     users = []
     
     users_main_info = USER_COLLECTION.find().sort('id')
@@ -160,9 +183,85 @@ def get_users_in_project():
     return users
 # -------------------------------------------------------------------------------------------------
 
+# root 
+
+def redirect_home(request):
+    return redirect('select_project')
+
+
+# Project management
 
 @login_required(login_url='login')
-def home(request):
+def select_project(request):
+    projects = PROJECTS_COLLECTION.find()
+    return render(request, 'main/main_pages/select-project.html', {'projects': projects})
+
+
+@login_required(login_url='login')
+def create_project(request):
+
+    if request.method == 'POST':
+
+        developers = []
+        n = 0
+        
+        # these are going to be the IDs of the developers selected for the project
+        while request.POST.get(f'developer_{n}') != '':
+            developers.append(request.POST.get(f'developer_{n}'))
+
+        new_project = {
+        'id': str(uuid.uuid4()),
+        'name': request.POST.get('project_name'),
+        'resume': request.POST.get('resume'),
+        'created': NOW.now(),
+        'completed': False,
+        'deadline': request.POST.get('deadline'),
+        'extension': False,
+        'developers': developers,
+    }
+
+        PROJECTS_COLLECTION.insert_one(new_project)
+        return redirect('home', project_id=new_project['id'])
+
+    else:
+
+        users = USER_INFO_COLLECTION.find()
+        managers = USER_INFO_COLLECTION.find({'user_level': MANAGER_LEVEL})
+
+        return render(request, 'main/main_pages/create-project.html', {'users': users, 'managers': managers})
+
+
+@login_required(login_url='login')
+def project_overall(request, project_id:str):
+    users = get_users_in_project()
+    
+    # getting the task that are waiting for aproval
+    current_user = USER_INFO_COLLECTION.find_one({'user_id': request.user.id})
+
+    tasks_waiting_for_aproval = TASKS_COLLECTION.find({'waiting_for_aproval': True})
+    tasks:list = []
+
+    for task in tasks_waiting_for_aproval:
+        user = USER_INFO_COLLECTION.find_one({'user_id': task['user_id']})
+        
+        tasks.append({'task':task, 'user':user})
+    
+    # getting the objectives of the project
+    # we need to get the project id from a path parameter
+
+    return render(request, 'main/main_pages/project-overall.html', {'users':users, 'tasks':tasks, 'current_user': current_user})
+
+
+@login_required(login_url='login')
+def project_settings(request, project_id:str):
+    return render(request, 'main/main_pages/project-settings.html')
+
+# -------------------------------------------------------------------------------------------------
+
+# Others
+
+@login_required(login_url='login')
+def home(request, project_id:str):
     create_user_info(request.user)
     # we are going to get the five recent comments
 
@@ -187,7 +286,7 @@ def home(request):
 
 
 @login_required(login_url='login')
-def view_all_comments(request):
+def view_all_comments(request, project_id:str):
     comment_form = Comment()
     comments = get_recent_comments(10)
 
@@ -199,7 +298,7 @@ def view_all_comments(request):
 
 
 @login_required(login_url='login')
-def view_all_timeline(request):
+def view_all_timeline(request, project_id:str):
     timeline = TIMELINE_COLLECTION.find().sort('date', -1)
     return render(request, 'main/main_pages/view-all-timeline.html', {'timeline':timeline})
 
@@ -298,24 +397,6 @@ def chat(request, username=False):
     return render(request, 'main/main_pages/chat.html', {'chats_info':chats_info, 'user_info':user_info})
 
 
-# Administrator level
-@login_required(login_url='login')
-def project_overall(request):
-    users = get_users_in_project()
-
-    # get the task that are waiting for aproval
-
-    tasks_waiting_for_aproval = TASKS_COLLECTION.find({'waiting_for_aproval': True})
-    tasks:list = []
-
-    for task in tasks_waiting_for_aproval:
-        user = USER_INFO_COLLECTION.find_one({'user_id': task['user_id']})
-        
-        tasks.append({'task':task, 'user':user})
-
-    return render(request, 'main/main_pages/project-overall.html', {'users':users, 'tasks':tasks})
-
-
 @login_required(login_url='login')
 def user_details(request, username):
 
@@ -333,9 +414,11 @@ def user_details(request, username):
 
     return render(request, 'main/main_pages/user-details.html', {'user_info':user_info, 'tasks':tasks, 'own_profile':own_profile, 'current_user':current_user})
 
+
 # ------------------------------------------------------------------
 # APIs
 # ------------------------------------------------------------------
+
 
 def comments_api(request):
     if request.is_ajax and request.method == 'POST':
@@ -374,12 +457,33 @@ def send_message_api(request):
     else:
         return HttpResponse('FOBIDDEN')
 
+
+def get_users_api(request):
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.method == 'GET':
+        users_docs = USER_INFO_COLLECTION.find()
+        users = []
+        for user in users_docs:
+            user['_id'] = ''
+            users.append(user)
+
+            print('------------')
+            print('------------')
+            print(user['_id'])
+            print('------------')
+            print('------------')
+
+
+        return JsonResponse({'users':users})
+
+    else:
+        return HttpResponse('FOBIDDEN')
+
 # ------------------------------------------------------------------
 # POST MANAGERS
 # ------------------------------------------------------------------
 
 def new_comments_manager(request, home='True'):
-    # we need the current user that made the comment
+    # we need the user that made the comment
     if 'submit_comment' in request.POST:
         form = Comment(request.POST)
 
@@ -413,11 +517,11 @@ def new_comments_manager(request, home='True'):
             }
             
             query = {'comment':comment_to_answer}
-            new_values = { '$push': {'answers':new_answer}}
+            new_values = {'$push': {'answers':new_answer}}
             COMMENTS_COLLECTION.update_one(query, new_values)
 
     if set_boolean(home):
-        return redirect('home')
+        return redirect('home', project_id='test')
     else:
         return redirect('view_all_comments')
 

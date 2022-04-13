@@ -10,7 +10,7 @@ def register(response):
         if form.is_valid():
             form.save()
 
-        return redirect('/')
+        return redirect('select_project')
     else:
         form = RegisterForm()
 

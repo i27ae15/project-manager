@@ -11,7 +11,7 @@
                         {% if show_recent_comments is not None %}
                         <div class="card-header pb-0" style="padding: 0;">
                             <h4 style="display: inline-block;">Recent Comments</h4>
-                            <a class="btn btn-primary" style="padding: 7px;" href="{% url 'view_all_comments' %}">View
+                            <a class="btn btn-primary" style="padding: 7px;" href="{% url 'view_all_comments' project_id='test' %}">View
                                 all</a>
                         </div>
                         {% endif %}
