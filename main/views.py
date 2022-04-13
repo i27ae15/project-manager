@@ -6,13 +6,13 @@ from datetime import datetime
 from django.http import HttpResponse
 from django.http.response import JsonResponse
 from django.shortcuts import render, redirect
-from django.urls import reverse
 from django.contrib.auth.decorators import login_required
 
 # mongo 
 import pymongo
 import certifi
 from bson.objectid import ObjectId
+
 
 # forms
 from .forms import Comment, AnswerComment, NewActivity, PersonalDetails
@@ -22,7 +22,7 @@ NOW = datetime.now()
 ca = certifi.where()
 
 # connecting to the data base ---------------------------------------------------
-ONLINE_CLIENT = pymongo.MongoClient("mongodb+srv://userTestOne:aM2ex0Wde9Hy7C7v@cluster0.m226z.mongodb.net/sample_restaurants?retryWrites=true&w=majority", tlsCAFile=ca)
+# ONLINE_CLIENT = pymongo.MongoClient("mongodb+srv://userTestOne:aM2ex0Wde9Hy7C7v@cluster0.m226z.mongodb.net/sample_restaurants?retryWrites=true&w=majority", tlsCAFile=ca)
 
 LOCAL_CLIENT = pymongo.MongoClient()
 
@@ -63,10 +63,27 @@ TASKS_COLLECTION = db_name[user_tasks_collection]
 # to be able to post answer to comments
 # -------------------------------------------------------------------------------------------------
 
-
 # other functions ---------------------------------------------------------------------------------
+def convert_mongo_collection_to_dict(data:dict, include_object_id:bool):
+    data = dict(data)
+    data_converted = dict()
 
-def set_boolean(value):
+    for key in data.keys():
+        current_term = data[key]
+
+        if type(current_term) == ObjectId:
+            
+            if not include_object_id:
+                continue
+            
+            current_term = str(current_term)
+            
+        data_converted[key] = current_term
+    
+    return data_converted
+
+
+def get_boolean(value):
 
     if str(value).lower() in ['true', '1']:
         return True
@@ -188,7 +205,6 @@ def get_users_in_project(project_id:str=''):
 def redirect_home(request):
     return redirect('select_project')
 
-
 # Project management
 
 @login_required(login_url='login')
@@ -201,13 +217,38 @@ def select_project(request):
 def create_project(request):
 
     if request.method == 'POST':
-
-        developers = []
-        n = 0
         
-        # these are going to be the IDs of the developers selected for the project
-        while request.POST.get(f'developer_{n}') != '':
-            developers.append(request.POST.get(f'developer_{n}'))
+        ['objective-0-name', 'objective-0-deadline', 'developer-0-id', 'role-developer-0']
+
+        objectives = []
+        current_objective = None
+
+        for key in list(request.POST.keys())[6:]:
+            
+            if 'objective' in key and 'name' in key and not 'sub-objectives' in key:
+                # this is a main objective
+                objective_name = request.POST.get(key)
+                new_objective = {
+                    'id': str(uuid.uuid4()),
+                    'objective': objective_name,
+                    'deadline': '',
+                    'sub_objectives': [],
+                }
+
+                # getting the id of the current objective
+                current_key = key[10:]
+                current_objective_id_str:str = ''
+                current_objective_id:int = 0
+
+                for k in current_key:
+                    if k == '-':
+                        current_objective_id = int(current_objective_id_str)
+                        break
+                    
+                    current_objective_id_str += k
+
+                objectives.append(new_objective)
+    
 
         new_project = {
         'id': str(uuid.uuid4()),
@@ -218,6 +259,7 @@ def create_project(request):
         'deadline': request.POST.get('deadline'),
         'extension': False,
         'developers': developers,
+        'objectives': objectives
     }
 
         PROJECTS_COLLECTION.insert_one(new_project)
@@ -419,7 +461,6 @@ def user_details(request, username):
 # APIs
 # ------------------------------------------------------------------
 
-
 def comments_api(request):
     if request.is_ajax and request.method == 'POST':
         comments = {'comments':get_recent_comments(limit=10, skip=int(request.POST.get('skip')))}
@@ -460,18 +501,12 @@ def send_message_api(request):
 
 def get_users_api(request):
     if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.method == 'GET':
+
         users_docs = USER_INFO_COLLECTION.find()
         users = []
+
         for user in users_docs:
-            user['_id'] = ''
-            users.append(user)
-
-            print('------------')
-            print('------------')
-            print(user['_id'])
-            print('------------')
-            print('------------')
-
+            users.append(convert_mongo_collection_to_dict(data=user, include_object_id=False))
 
         return JsonResponse({'users':users})
 
@@ -520,7 +555,7 @@ def new_comments_manager(request, home='True'):
             new_values = {'$push': {'answers':new_answer}}
             COMMENTS_COLLECTION.update_one(query, new_values)
 
-    if set_boolean(home):
+    if get_boolean(home):
         return redirect('home', project_id='test')
     else:
         return redirect('view_all_comments')
@@ -558,7 +593,7 @@ def set_task_as_completed(request):
 
         if request.POST.get('aprove') != 'None':
 
-            aprove = set_boolean(request.POST.get('aprove'))
+            aprove = get_boolean(request.POST.get('aprove'))
 
             current_task = TASKS_COLLECTION.find_one_and_update(
                 {
