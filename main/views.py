@@ -1,6 +1,6 @@
 # python
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 # django 
 from django.http import HttpResponse
@@ -216,51 +216,72 @@ def select_project(request):
 @login_required(login_url='login')
 def create_project(request):
 
-    if request.method == 'POST':
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.method == 'POST':
         
-        ['objective-0-name', 'objective-0-deadline', 'developer-0-id', 'role-developer-0']
-
         objectives = []
-        current_objective = None
+        obj = 0
 
-        for key in list(request.POST.keys())[6:]:
-            
-            if 'objective' in key and 'name' in key and not 'sub-objectives' in key:
-                # this is a main objective
-                objective_name = request.POST.get(key)
-                new_objective = {
-                    'id': str(uuid.uuid4()),
-                    'objective': objective_name,
-                    'deadline': '',
-                    'sub_objectives': [],
+        date_format = '%Y-%m-%d'
+
+        while request.POST.get(f'objectives[{obj}][objective]') is not None:
+            sub_objectives = []
+            sub_obj = 0
+            while request.POST.get(f'objectives[{obj}][sub_objectives][{sub_obj}][sub_objective]') is not None:
+
+                new_sub_obj = {
+                    'sub_objective': request.POST.get(f'objectives[{obj}][sub_objectives][{sub_obj}][sub_objective]'),
+                    'deadline': datetime.strptime(request.POST.get(f'objectives[{obj}][sub_objectives][{sub_obj}][deadline]'), date_format),
                 }
 
-                # getting the id of the current objective
-                current_key = key[10:]
-                current_objective_id_str:str = ''
-                current_objective_id:int = 0
+                sub_objectives.append(new_sub_obj)
+                sub_obj += 1
 
-                for k in current_key:
-                    if k == '-':
-                        current_objective_id = int(current_objective_id_str)
-                        break
-                    
-                    current_objective_id_str += k
+            new_obj = {
+               'objective': request.POST.get(f'objectives[{obj}][objective]'),
+               'deadline': datetime.strptime(request.POST.get(f'objectives[{obj}][deadline]'), date_format),
+               'sub_objectives': sub_objectives,
+            }
+        
+            obj += 1
+            objectives.append(new_obj)
 
-                objectives.append(new_objective)
+        developers = []
+        dev = 0
+
+        while request.POST.get(f'developers[{dev}][id]') is not None:
+
+            query = {'user_id':int(request.POST.get(f'developers[{dev}][id]'))}
+            developer_role = request.POST.get(f'developers[{dev}][role]')
+
+            if developer_role != '':
+                current_dev = USER_INFO_COLLECTION.find_one_and_update(query, 
+                {'$set': {'role':developer_role + ' developer'}})
+
+            else:
+                current_dev = USER_INFO_COLLECTION.find_one(query)
+            
+            new_dev = {
+                'id': current_dev['user_id'],
+                'username': current_dev['username'],
+                'role': current_dev['role']
+            }
+
+            developers.append(new_dev)
+            dev += 1
+
     
 
         new_project = {
         'id': str(uuid.uuid4()),
         'name': request.POST.get('project_name'),
-        'resume': request.POST.get('resume'),
+        'resume': request.POST.get('project_resume'),
         'created': NOW.now(),
         'completed': False,
-        'deadline': request.POST.get('deadline'),
+        'deadline': datetime.strptime(request.POST.get('project_deadline'), date_format),
         'extension': False,
         'developers': developers,
         'objectives': objectives
-    }
+        }
 
         PROJECTS_COLLECTION.insert_one(new_project)
         return redirect('home', project_id=new_project['id'])

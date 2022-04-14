@@ -211,14 +211,14 @@ function getDevelopers(){
         let developerFrontendID = developersObjects[dev].attributes.name.value;
         
         let newDeveloper = {
-            'developer_id': $(`#select-developer-${developerFrontendID}`).val(),
-            'developer_role': $(`#role-developer-${developerFrontendID}`).val(),
+            'id': $(`#select-developer-${developerFrontendID}`).val(),
+            'role': $(`#role-developer-${developerFrontendID}`).val(),
         }
 
     
         developers.push(newDeveloper);
     }
-
+    
     return developers
 }
 
@@ -227,20 +227,26 @@ function getDevelopers(){
 // ------------------------------------------------------------------------------------
 
 
-$('#create-project-form').on(function (e) {
+$('#create-project-form').submit(function (e) {
 
     // preventing from page reload and default actions
     e.preventDefault();
 
     jsonData = {
+        'project_name': $('#project-name').val(),
+        'project_resume': $('#project-resume').val(),
+        'project_deadline': $('#project-deadline').val(),
+        'project_manager': $('#project-manager').val(),
         'objectives': getObjectives(),
         'developers': getDevelopers(),
         'csrfmiddlewaretoken': document.getElementsByName('csrfmiddlewaretoken')[0].value,
     }
 
+    console.log(jsonData)
+
     $.ajax({
         type: 'POST',
-        url: 'create_project/',
+        url: '',
         data: jsonData,
         success: function (response) {
 
