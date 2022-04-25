@@ -242,18 +242,20 @@ $('#create-project-form').submit(function (e) {
         'csrfmiddlewaretoken': document.getElementsByName('csrfmiddlewaretoken')[0].value,
     }
 
-    console.log(jsonData)
-
     $.ajax({
         type: 'POST',
         url: '',
         data: jsonData,
         success: function (response) {
-
+            window.location.href = `http://localhost:8000/home/${response.project_id}`;
         },
         error: function (response) {
             alert('An error has ocurred with your message, please try again.');
         }
     })
+
+
+
+    
 
 })

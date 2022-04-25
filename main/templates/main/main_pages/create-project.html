@@ -114,7 +114,7 @@
                                                 <select class="form-control" id="project-manager" itemid="project-manager" name="project-manager" required>
                                                     {% for manager in managers %}
 
-                                                    <option value="{{manager.user_id}}">
+                                                    <option value="{{manager.id}}">
                                                         {{manager.first_name}}
                                                         {{manager.last_name}}-{{manager.username}}
                                                     </option>
@@ -212,7 +212,7 @@
                                                         <select class="form-control" id="select-developer-0" name="developer-0-id">
                                                             {% for user in users %}
     
-                                                            <option value="{{user.user_id}}">
+                                                            <option value="{{user.id}}">
                                                                 {{user.first_name}} {{user.last_name}} - {{user.username}} -
                                                                 {{user.role}}
                                                             </option>

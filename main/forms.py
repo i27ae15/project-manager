@@ -1,8 +1,8 @@
 from django import forms
 
-
 class Comment(forms.Form):
     comment = forms.CharField(label='Make a new comment', max_length=200, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    # project_id = forms.CharField(max_length=200, widget=forms.TextInput(attrs={'type': 'hidden'}))
     
 
 class AnswerComment(forms.Form):

@@ -52,6 +52,7 @@
                     <form method='post' action="{% url 'new_comments_manager' home=home %}" id="form-new-comment" autocomplete="off">
                         {% csrf_token %}
                         {{comment_form}}
+                        <input type="hidden" value="{{project_id}}" name="project_id">
                         <button type="submit" , name="submit_comment" class="btn btn-primary"
                             style="margin-top: 2%;">Submit</button>
                     </form>

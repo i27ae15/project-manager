@@ -1,6 +1,6 @@
 # python
 import uuid
-from datetime import date, datetime
+from datetime import datetime
 
 # django 
 from django.http import HttpResponse
@@ -42,7 +42,6 @@ PROJECTS_COLLECTION = db_name['projects']
 USER_COLLECTION = db_name['auth_user']
 USER_INFO_COLLECTION = db_name['user_info']
 
-project_objectives_collection = 'project_objectives'
 project_tasks_collection = 'project_tasks'
 comments_collection = 'comments'
 timeline_collection = 'timeline'
@@ -50,7 +49,6 @@ chats_collection = 'chats'
 messages_collection = 'messages'
 user_tasks_collection = 'user_tasks'
 
-PROJECT_OBJECTIVES_COLLECTION = db_name[project_objectives_collection]
 PROJECT_TASKS_COLLECTION = db_name[project_tasks_collection]
 COMMENTS_COLLECTION = db_name[comments_collection]
 TIMELINE_COLLECTION = db_name[timeline_collection]
@@ -104,13 +102,13 @@ def get_info_from_answer(dict_object):
     return answer
 
 
-def get_recent_comments(limit=5, skip=0, order=-1):
+def get_recent_comments(project_id:str, limit=5, skip=0, order=-1, ):
     """
     
-    RETURN A LIST OF THE LAST N COMMENTS
+    RETURN A LIST OF THE LAST N COMMENTS IN CURRENT PROJECT
     
     """
-    recent_comments = COMMENTS_COLLECTION.find().sort('date', order).limit(limit).skip(skip)
+    recent_comments = COMMENTS_COLLECTION.find({'project_id': project_id}).sort('date', order).limit(limit).skip(skip)
     comments = []
 
     for c in recent_comments:
@@ -120,7 +118,7 @@ def get_recent_comments(limit=5, skip=0, order=-1):
 
         user_in_comment = USER_COLLECTION.find_one({'id': c['user_id']})
         current_comment['username'] = user_in_comment['username']
-        current_comment['user_profile_photo'] = USER_INFO_COLLECTION.find_one({'user_id': user_in_comment['id']})['profile_photo']
+        current_comment['user_profile_photo'] = USER_INFO_COLLECTION.find_one({'id': user_in_comment['id']})['profile_photo']
         current_comment['user_status'] = user_in_comment['is_active']
         current_comment['answers'] = get_info_from_answer(c['answers'])
 
@@ -129,8 +127,8 @@ def get_recent_comments(limit=5, skip=0, order=-1):
     return comments
 
 
-def get_recent_acitivities_in_timeline(limit=5, skip=0):
-    return TIMELINE_COLLECTION.find().sort('date', -1).limit(limit).skip(skip)
+def get_recent_acitivities_in_timeline(project_id:str, limit=5, skip=0):
+    return TIMELINE_COLLECTION.find({'project_id':project_id}).sort('date', -1).limit(limit).skip(skip)
 
 
 def get_recent_chats(user_id, get_current_chat=False):
@@ -159,48 +157,17 @@ def get_recent_chats(user_id, get_current_chat=False):
     return info
 
 
-def create_user_info(user):
-    if USER_INFO_COLLECTION.find_one({'user_id':user.id}) is None:
-        new_info = {
-            'user_id':user.id,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'username': user.username,
-            'email': user.email,
-            'profile_photo': '',
-            'role': '',
-            'current_task': '',
-            'city': '',
-            'country': '',
-            'phone': '',
-            'about_me': '',
-            'current_project': '',
-            'chats': [],
-            'comments': [],
-            'notifications': [], 
-            'user_level': 0,  
-        }
-
-        USER_INFO_COLLECTION.insert_one(new_info)
+def get_users_in_project(project_id:str):
+    return USER_INFO_COLLECTION.find({'current_project': project_id}).sort('first_name')
 
 
-def get_users_in_project(project_id:str=''):
-    users = []
-    
-    users_main_info = USER_COLLECTION.find().sort('id')
-    users_other_info = USER_INFO_COLLECTION.find().sort('user_id')
+def get_project_objetives(project_id:str):
+    return PROJECTS_COLLECTION.find_one({'id': project_id})['objectives']
 
-    for index, u in enumerate(users_main_info):
-        info = {
-            'main_info': u,
-            'other_info': users_other_info[index]
-        } 
-        users.append(info)
-    
-    return users
+# -------------------------------------------------------------------------------------------------
+# root 
 # -------------------------------------------------------------------------------------------------
 
-# root 
 
 def redirect_home(request):
     return redirect('select_project')
@@ -209,8 +176,10 @@ def redirect_home(request):
 
 @login_required(login_url='login')
 def select_project(request):
+    # TODO: Itereate the list of developers, if it matches with the current, them send it to the frontend
     projects = PROJECTS_COLLECTION.find()
-    return render(request, 'main/main_pages/select-project.html', {'projects': projects})
+    current_user = USER_INFO_COLLECTION.find_one({'id': request.user.id})
+    return render(request, 'main/main_pages/select-project.html', {'projects': projects, 'current_user': current_user})
 
 
 @login_required(login_url='login')
@@ -229,6 +198,10 @@ def create_project(request):
             while request.POST.get(f'objectives[{obj}][sub_objectives][{sub_obj}][sub_objective]') is not None:
 
                 new_sub_obj = {
+                    'id': str(uuid.uuid4()), 
+                    'completed': False,
+                    'developers_on_this': 0,
+                    'extension': False,
                     'sub_objective': request.POST.get(f'objectives[{obj}][sub_objectives][{sub_obj}][sub_objective]'),
                     'deadline': datetime.strptime(request.POST.get(f'objectives[{obj}][sub_objectives][{sub_obj}][deadline]'), date_format),
                 }
@@ -237,9 +210,13 @@ def create_project(request):
                 sub_obj += 1
 
             new_obj = {
-               'objective': request.POST.get(f'objectives[{obj}][objective]'),
-               'deadline': datetime.strptime(request.POST.get(f'objectives[{obj}][deadline]'), date_format),
-               'sub_objectives': sub_objectives,
+                'id': str(uuid.uuid4()), 
+                'objective': request.POST.get(f'objectives[{obj}][objective]'),
+                'deadline': datetime.strptime(request.POST.get(f'objectives[{obj}][deadline]'), date_format),
+                'completed': False,
+                'developers_on_this': 0,
+                'extension': False,
+                'sub_objectives': sub_objectives,
             }
         
             obj += 1
@@ -250,7 +227,7 @@ def create_project(request):
 
         while request.POST.get(f'developers[{dev}][id]') is not None:
 
-            query = {'user_id':int(request.POST.get(f'developers[{dev}][id]'))}
+            query = {'id':int(request.POST.get(f'developers[{dev}][id]'))}
             developer_role = request.POST.get(f'developers[{dev}][role]')
 
             if developer_role != '':
@@ -261,15 +238,13 @@ def create_project(request):
                 current_dev = USER_INFO_COLLECTION.find_one(query)
             
             new_dev = {
-                'id': current_dev['user_id'],
+                'id': current_dev['id'],
                 'username': current_dev['username'],
                 'role': current_dev['role']
             }
 
             developers.append(new_dev)
             dev += 1
-
-    
 
         new_project = {
         'id': str(uuid.uuid4()),
@@ -284,22 +259,24 @@ def create_project(request):
         }
 
         PROJECTS_COLLECTION.insert_one(new_project)
-        return redirect('home', project_id=new_project['id'])
+        return JsonResponse({'project_id': new_project['id']})
 
     else:
 
         users = USER_INFO_COLLECTION.find()
-        managers = USER_INFO_COLLECTION.find({'user_level': MANAGER_LEVEL})
+        managers = USER_INFO_COLLECTION.find({'user_level': {'$gt': MANAGER_LEVEL - 1}})
 
         return render(request, 'main/main_pages/create-project.html', {'users': users, 'managers': managers})
 
 
 @login_required(login_url='login')
 def project_overall(request, project_id:str):
-    users = get_users_in_project()
+    users = get_users_in_project(project_id=project_id)
+    project_objectives = get_project_objetives(project_id=project_id)
     
+
     # getting the task that are waiting for aproval
-    current_user = USER_INFO_COLLECTION.find_one({'user_id': request.user.id})
+    current_user = USER_INFO_COLLECTION.find_one({'id': request.user.id})
 
     tasks_waiting_for_aproval = TASKS_COLLECTION.find({'waiting_for_aproval': True})
     tasks:list = []
@@ -309,10 +286,8 @@ def project_overall(request, project_id:str):
         
         tasks.append({'task':task, 'user':user})
     
-    # getting the objectives of the project
-    # we need to get the project id from a path parameter
 
-    return render(request, 'main/main_pages/project-overall.html', {'users':users, 'tasks':tasks, 'current_user': current_user})
+    return render(request, 'main/main_pages/project-overall.html', {'users':users, 'tasks':tasks, 'current_user': current_user, 'project_objectives': project_objectives, 'project_id': project_id})
 
 
 @login_required(login_url='login')
@@ -325,12 +300,9 @@ def project_settings(request, project_id:str):
 
 @login_required(login_url='login')
 def home(request, project_id:str):
-    create_user_info(request.user)
-    # we are going to get the five recent comments
-
-    comments = get_recent_comments()
-    timeline = get_recent_acitivities_in_timeline()
-    users = get_users_in_project()
+    comments = get_recent_comments(project_id=project_id)
+    timeline = get_recent_acitivities_in_timeline(project_id=project_id)
+    users = get_users_in_project(project_id=project_id)
 
     # forms
     comment_form = Comment()
@@ -342,6 +314,7 @@ def home(request, project_id:str):
     'comment_form':comment_form,
     'timeline':timeline,
     'users':users,
+    'project_id': project_id,
     # Forms ----------------------------------------
     'answer_comment_form': answer_comment_form,
     'new_milestone_form': new_milestone_form,
@@ -369,7 +342,7 @@ def view_all_timeline(request, project_id:str):
 @login_required(login_url='login')
 def profile(request, username):
 
-    current_logged_user = USER_INFO_COLLECTION.find_one({'user_id': request.user.id})
+    current_logged_user = USER_INFO_COLLECTION.find_one({'id': request.user.id})
 
     if username == 'my_profile' or username == request.user.username:
 
@@ -394,7 +367,7 @@ def profile(request, username):
         user_info = {'main':user, 'user_info':other_info}
         own_profile = False
 
-    user_info['current_task'] = TASKS_COLLECTION.find_one({'user_id': request.user.id})
+    user_info['current_task'] = TASKS_COLLECTION.find_one({'id': request.user.id})
 
     if user_info['current_task'] is None:
         user_info['current_task'] = False
@@ -409,7 +382,7 @@ def edit_profile(request):
         
         if form.is_valid():
 
-            query = {'id': request.user.id}
+            query = {'user_id': request.user.id}
             new_values = { "$set": 
             { 'first_name':form.cleaned_data['first_name'],
                 'last_name':form.cleaned_data['last_name'],
@@ -418,12 +391,16 @@ def edit_profile(request):
 
             USER_COLLECTION.update_one(query, new_values)
 
-            query = {'user_id': request.user.id}
+            query = {'id': request.user.id}
             new_values = { "$set": 
             { 'phone':form.cleaned_data['phone'],
                 'about_me':form.cleaned_data['about_me'],
                 'city':form.cleaned_data['city'],
-                'country':form.cleaned_data['country'], } 
+                'country':form.cleaned_data['country'], 
+                'first_name':form.cleaned_data['first_name'],
+                'last_name':form.cleaned_data['last_name'],
+                'email':form.cleaned_data['email'] 
+                } 
             }
 
             USER_INFO_COLLECTION.update_one(query, new_values)
@@ -434,7 +411,7 @@ def edit_profile(request):
 
 
 
-    user_info = USER_INFO_COLLECTION.find_one({'user_id': request.user.id})
+    user_info = USER_INFO_COLLECTION.find_one({'id': request.user.id})
     form = PersonalDetails(initial={
         'first_name':request.user.first_name,
         'last_name':request.user.last_name,
@@ -455,7 +432,7 @@ def chat(request, username=False):
         pass
 
     chats_info = get_recent_chats(user_id=request.user.id, get_current_chat=True)
-    user_info = USER_INFO_COLLECTION.find_one({'user_id':request.user.id})
+    user_info = USER_INFO_COLLECTION.find_one({'id':request.user.id})
 
     return render(request, 'main/main_pages/chat.html', {'chats_info':chats_info, 'user_info':user_info})
 
@@ -473,7 +450,7 @@ def user_details(request, username):
         own_profile = False
 
     tasks = TASKS_COLLECTION.find({'user_id':user['id']}).sort('date', -1).limit(10)
-    current_user = USER_INFO_COLLECTION.find_one({'user_id':request.user.id})
+    current_user = USER_INFO_COLLECTION.find_one({'id':request.user.id})
 
     return render(request, 'main/main_pages/user-details.html', {'user_info':user_info, 'tasks':tasks, 'own_profile':own_profile, 'current_user':current_user})
 
@@ -545,15 +522,16 @@ def new_comments_manager(request, home='True'):
 
         if form.is_valid():
             new_comment = {
-                '_id': ObjectId(),
+                'id': str(uuid.uuid4()),
+                'project_id': request.POST.get('project_id'),
                 'user_id': request.user.id,
                 'comment': form.cleaned_data['comment'],
                 'date': NOW.now(),
-                'answers': []
+                'answers': [],
             }
 
-            query = {'user_id': request.user.id}
-            new_values = { "$push": { "comments": new_comment['_id'] } }
+            query = {'id': request.user.id}
+            new_values = { "$push": { "comments": new_comment['id']} }
 
             USER_INFO_COLLECTION.update_one(query, new_values)
             COMMENTS_COLLECTION.insert_one(new_comment)
@@ -577,7 +555,7 @@ def new_comments_manager(request, home='True'):
             COMMENTS_COLLECTION.update_one(query, new_values)
 
     if get_boolean(home):
-        return redirect('home', project_id='test')
+        return redirect('home', project_id=request.POST.get('project_id'))
     else:
         return redirect('view_all_comments')
 

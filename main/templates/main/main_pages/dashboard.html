@@ -194,19 +194,19 @@
                   <div class="d-flex px-2 py-1">
                     <!-- Here is going to be the profile photo -->
                     <div>
-                      <img src="{% static u.other_info.profile_photo %}" class="avatar avatar-sm me-3" alt="xd">
+                      <img src="{% static u.profile_photo %}" class="avatar avatar-sm me-3" alt="xd">
                     </div>
                     <div class="d-flex flex-column justify-content-center">
-                      <h6 class="mb-0 text-sm">{{u.main_info.first_name}} {{u.main_info.last_name}}</h6>
+                      <h6 class="mb-0 text-sm">{{u.first_name}} {{u.last_name}}</h6>
                       <!-- TODO -->
                       <!-- Put a circle to determined whether the user is online or offline -->
                     </div>
                   </div>
                 </td>
                 <td>
-                  {{u.other_info.role}}
+                  {{u.role}}
                 <td class="align-middle text-center text-sm">
-                  {{u.other_info.working_on}}
+                  {{u.working_on}}
                 </td>
               </tr>
               {% endfor %}

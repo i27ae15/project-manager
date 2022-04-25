@@ -58,24 +58,24 @@
                                 <td>
                                     <div class="d-flex px-2 py-1">
                                         <div>
-                                            <img src="{% static user.other_info.profile_photo %}"
-                                                class="avatar avatar-sm me-3" alt="user1">
+                                            <img src="{% static user.profile_photo %}" class="avatar avatar-sm me-3"
+                                                alt="user1">
                                         </div>
                                         <div class="d-flex flex-column justify-content-center">
-                                            <h6 class="mb-0 text-sm">{{user.main_info.first_name}}
-                                                {{user.main_info.last_name}}</h6>
-                                            <p class="text-xs text-secondary mb-0">{{user.main_info.email}}</p>
+                                            <h6 class="mb-0 text-sm">{{user.first_name}}
+                                                {{user.last_name}}</h6>
+                                            <p class="text-xs text-secondary mb-0">{{user.email}}</p>
                                         </div>
                                     </div>
                                 </td>
                                 <td>
-                                    <p class="text-xs font-weight-bold mb-0">{{user.other_info.username}}</p>                                
+                                    <p class="text-xs font-weight-bold mb-0">{{user.username}}</p>
                                 </td>
                                 <td>
-                                    <p class="text-xs font-weight-bold mb-0">{{user.other_info.role}}</p>                                
+                                    <p class="text-xs font-weight-bold mb-0">{{user.role}}</p>
                                 </td>
                                 <td class="align-middle text-center text-sm">
-                                    {% if user.main_info.is_active %}
+                                    {% if user.is_active %}
                                     <span class="badge badge-sm bg-gradient-success">Online</span>
                                     {% else %}
                                     <span class="badge badge-sm bg-gradient-secondary">Offline</span>
@@ -106,7 +106,7 @@
 {% if current_user.user_level > 0%}
 
 <div id="tasks-for-aproval">
-    <h3 class="section-title">Project's objectives</h3>
+    <h3 class="section-title">Tasks for approval</h3>
 
     <div class="row">
         <div class="col-12">
@@ -180,29 +180,30 @@
 
 </div>
 
+{% csrf_token %}
+
 {% endif %}
 
 <!-- Project's objectives -->
 <div id="project-objectives">
     <h3 class="section-title">Project's objectives</h3>
-    {% for objective in objectives %}
+    {% for objective in project_objectives %}
 
     <div class="row">
         <div class="col-12">
             <div class="card mb-4">
                 <div class="card-header pb-0">
                     <h6 style="display: inline;">{{objective.objective}}</h6>
-                    {% csrf_token %}
-                    <button class="btn btn-primary" style="float: right;" onclick="completeObjective('{{objective.id}}')">Mark as completed</button>
+                    {% if not objective.completed %}
+                    <button class="btn btn-primary" style="float: right;"
+                        onclick="completeObjective('{{objective.id}}', '{{project_id}}')">Mark as completed</button>
+                    {% endif %}
                 </div>
                 <div class="card-body px-0 pt-0 pb-2">
                     <div class="table-responsive p-0">
                         <table class="table align-items-center mb-0">
                             <thead>
                                 <tr>
-                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
-                                        Task
-                                    </th>
                                     <th
                                         class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">
                                         Deadline</th>
@@ -212,50 +213,109 @@
                                     <th
                                         class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
                                         Completed on</th>
-                                    <th class="text-secondary opacity-7"></th>
                                     <th
                                         class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
                                         extension</th>
-                                    <th class="text-secondary opacity-7"></th>
-                                    <th
-                                        class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
-                                        </th>
-                                    <th class="text-secondary opacity-7"></th>
                                 </tr>
                             </thead>
+
                             <tbody>
-                                {% for task in objectives.tasks %}
                                 <tr>
                                     <td>
-                                        <p class="text-xs font-weight-bold mb-0">{{task.task}}</p>
-                                    </td>
-                                    <td>
-                                        <p class="text-xs font-weight-bold mb-0">{{task.deadline}}</p>
+                                        <p class="text-xs font-weight-bold mb-0">{{objective.deadline}}</p>
                                         <!-- <p class="text-xs text-secondary mb-0">Organization</p> -->
                                     </td>
                                     <td class="align-middle text-center text-sm">
-                                        <p class="text-xs font-weight-bold mb-0">{{task.developers_on_this}}</p>
+                                        <p class="text-xs font-weight-bold mb-0">{{objective.developers_on_this}}</p>
                                     </td>
                                     <td class="align-middle text-center">
-                                        <p class="text-xs font-weight-bold mb-0">{{task.completed_on}}</p>
+                                        {% if not objective.completed %}
+                                        <p class="text-xs font-weight-bold mb-0">Not completed</p>
+                                        {% else %}
+                                        <p class="text-xs font-weight-bold mb-0">{{objective.completed_on}}</p>
+                                        {% endif %}
                                     </td>
                                     <td class="align-middle text-center">
-                                        <p class="text-xs font-weight-bold mb-0">{{task.extension}}</p>
-                                    </td>
-                                    <td class="align-middle">
-                                        <!-- Add here a parameter for the task section -->
-                                        <button class="btn btn-primary" style="float: right;" onclick="completeTask('{{task.id}}')">Mark as completed</button>
+                                        {% if not objective.extension %}
+                                        <p class="text-xs font-weight-bold mb-0">No extension</p>
+                                        {% else %}
+                                        <p class="text-xs font-weight-bold mb-0">{{objective.extension}}</p>
+                                        {% endif %}
                                     </td>
                                 </tr>
-                                {% endfor %}
                             </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Sub-objectives -->
+
+                    <div class="card-header pb-0">
+                        <h6 style="display: inline;">Sub-objectives</h6>
+                    </div>
+
+                    <div class="table-responsive p-0">
+                        <table class="table align-items-center mb-0">
+                            <thead>
+                                <tr>
+                                    <th
+                                        class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">
+                                        Objective</th>
+                                    <th
+                                        class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">
+                                        Deadline</th>
+                                    <th
+                                        class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
+                                        Developers on this</th>
+                                    <th
+                                        class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
+                                        extension</th>
+                                    <th
+                                        class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
+                                        Completed on</th>
+                                </tr>
+                            </thead>
+                            {% for sub_objectives in objective.sub_objectives %}
+
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <p class="text-xs font-weight-bold mb-0">{{sub_objectives.sub_objective}}</p>
+                                    </td>
+                                    <td>
+                                        <p class="text-xs font-weight-bold mb-0">{{sub_objectives.deadline}}</p>
+                                    </td>
+                                    <td class="align-middle text-center text-sm">
+                                        <p class="text-xs font-weight-bold mb-0">{{sub_objectives.developers_on_this}}
+                                        </p>
+                                    </td>
+                                    <td class="align-middle text-center">
+                                        {% if not sub_objectives.extension %}
+                                        <p class="text-xs font-weight-bold mb-0">No extension</p>
+                                        {% else %}
+                                        <p class="text-xs font-weight-bold mb-0">{{sub_objectives.extension}}</p>
+                                        {% endif %}
+                                    </td>
+                                    <td class="align-middle text-center" id="complete-on-{{sub_objective.id}}">
+                                        {% if not sub_objectives.completed %}
+
+                                        <button class="btn btn-sm btn-primary" id="btn-complete-sub-obj-{{sub_objective.id}}" style="float: right;"
+                                        onclick="completeSubObjective('{{sub_objectives.id}}')">Mark as completed</button>
+
+                                        {% else %}
+
+                                        <p class="text-xs font-weight-bold mb-0">{{sub_objectives.completed_on}}</p>
+
+                                        {% endif %}
+                                    </td>                        
+                                </tr>
+                            </tbody>
+                            {% endfor %}
                         </table>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
     {% endfor %}
 </div>
 
