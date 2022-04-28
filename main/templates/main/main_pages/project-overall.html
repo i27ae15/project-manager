@@ -86,7 +86,7 @@
                                 </td>
                                 {% if current_user.user_level > 0 %}
                                 <td class="align-middle">
-                                    <a href="{% url 'user_details' username=user.main_info.username %}"
+                                    <a href="{% url 'user_details' username=user.username %}"
                                         class="text-secondary font-weight-bold text-xs" data-toggle="tooltip"
                                         data-original-title="Edit user">
                                         View more
